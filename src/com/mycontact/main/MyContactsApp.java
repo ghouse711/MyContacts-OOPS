@@ -25,15 +25,23 @@ import java.util.Scanner;
  * OOP Concepts: User class with encapsulation (private fields), validation logic, password hashing
  * Description: User logs in with credentials to access their contact list.
  * OOP Concepts: Authentication interface, concrete implementations (BasicAuth, OAuth), polymorphism
- * 
+ * Description: User updates profile information, changes password, or manages preferences.
+ * OOP Concepts: User class with setter methods, validation encapsulated in methods
+
  * @author Developer
- * @version 2.0
+ * @version 3.0
  */
+
+
 public class MyContactsApp {
     
     private static Map<String, User> userDatabase = new HashMap<>();
     private static ActiveSession session = new ActiveSession();
 
+    /**
+     * Entry point for the application.
+     * @param args command line arguments
+     */
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
         boolean running = true;
@@ -42,7 +50,8 @@ public class MyContactsApp {
         System.out.println("==========================");
 
         while (running) {
-            System.out.println("\n1. Register");
+            System.out.println("\n--- Main Menu ---");
+            System.out.println("1. Register");
             System.out.println("2. Login (Password)");
             System.out.println("3. Login (OAuth Token)");
             System.out.println("4. Exit");
@@ -79,7 +88,6 @@ public class MyContactsApp {
             System.out.print("Enter Email: ");
             String email = scanner.nextLine();
             
-            // Validation utilizing our custom exception
             if (!ValidationUtil.isValidEmail(email)) {
                 throw new InvalidRegistrationException("Invalid email format.");
             }
@@ -118,10 +126,8 @@ public class MyContactsApp {
             System.out.println("\nRegistration Successful! You can now log in.");
             
         } catch (InvalidRegistrationException e) {
-            // Gracefully catch and report domain-specific errors
             System.out.println("Registration Failed: " + e.getMessage());
         } catch (Exception e) {
-            // Catch-all for unexpected errors
             System.out.println("An unexpected error occurred during registration.");
         }
     }
@@ -132,7 +138,7 @@ public class MyContactsApp {
         System.out.print("Enter Email: ");
         String email = scanner.nextLine();
         
-        System.out.print("Enter Credential (Password/Token): ");
+        System.out.print("Enter Credential (Token/Password): "); 
         String credential = scanner.nextLine();
 
         Optional<User> loginResult = authProvider.authenticate(email, credential);
@@ -141,9 +147,111 @@ public class MyContactsApp {
             session.startSession(loginResult.get());
             System.out.println("\nLogin Successful!");
             System.out.println("Welcome back, " + session.getLoggedInUser().getProfile().getFirstName() + "!");
-            session.endSession();
+            
+            // Navigate to the secure user dashboard
+            loggedInMenu(scanner);
         } else {
             System.out.println("\nLogin Failed: Invalid credentials.");
         }
+    }
+
+
+    private static void loggedInMenu(Scanner scanner) {
+        boolean loggedIn = true;
+        
+        while (loggedIn && session.isLoggedIn()) {
+            System.out.println("\n--- User Dashboard ---");
+            System.out.println("1. View Profile");
+            System.out.println("2. Update Profile");
+            System.out.println("3. Change Password");
+            System.out.println("4. Logout");
+            System.out.print("Choose an option: ");
+
+            String choice = scanner.nextLine();
+
+            switch (choice) {
+                case "1":
+                    viewProfile();
+                    break;
+                case "2":
+                    updateProfile(scanner);
+                    break;
+                case "3":
+                    changePassword(scanner);
+                    break;
+                case "4":
+                    session.endSession();
+                    System.out.println("Logged out successfully.");
+                    loggedIn = false;
+                    break;
+                default:
+                    System.out.println("Invalid option. Please try again.");
+            }
+        }
+    }
+
+
+    private static void viewProfile() {
+        User user = session.getLoggedInUser();
+        UserProfile profile = user.getProfile(); // This gets a defensive copy!
+        
+        System.out.println("\n--- Profile Details ---");
+        System.out.println("Name: " + profile.getFirstName() + " " + profile.getLastName());
+        System.out.println("Email: " + user.getEmail());
+        System.out.println("Account Type: " + user.getUserType());
+    }
+
+    /**
+     * Updates the user's first and last name.
+     * @param scanner The scanner to read input
+     */
+    private static void updateProfile(Scanner scanner) {
+        System.out.println("\n--- Update Profile ---");
+        User user = session.getLoggedInUser();
+        
+        // Retrieve a defensive copy so we don't accidentally corrupt state if validation fails
+        UserProfile currentProfile = user.getProfile(); 
+
+        System.out.print("Enter New First Name (or press Enter to keep '" + currentProfile.getFirstName() + "'): ");
+        String newFirst = scanner.nextLine();
+        if (!newFirst.trim().isEmpty()) {
+            currentProfile.setFirstName(newFirst);
+        }
+
+        System.out.print("Enter New Last Name (or press Enter to keep '" + currentProfile.getLastName() + "'): ");
+        String newLast = scanner.nextLine();
+        if (!newLast.trim().isEmpty()) {
+            currentProfile.setLastName(newLast);
+        }
+
+        // Apply the validated and modified copy back to the user object
+        user.setProfile(currentProfile);
+        System.out.println("Profile updated successfully!");
+    }
+
+
+    private static void changePassword(Scanner scanner) {
+        System.out.println("\n--- Change Password ---");
+        User user = session.getLoggedInUser();
+
+        System.out.print("Enter Current Password: ");
+        String currentPass = scanner.nextLine();
+        String currentHash = SecurityUtil.hashPassword(currentPass);
+
+        if (currentHash == null || !user.getPasswordHash().equals(currentHash)) {
+            System.out.println("Password change failed: Incorrect current password.");
+            return;
+        }
+
+        System.out.print("Enter New Password: ");
+        String newPass = scanner.nextLine();
+
+        if (!ValidationUtil.isValidPassword(newPass)) {
+            System.out.println("Password change failed: New password must be at least 6 characters.");
+            return;
+        }
+
+        user.setPasswordHash(SecurityUtil.hashPassword(newPass));
+        System.out.println("Password changed successfully!");
     }
 }

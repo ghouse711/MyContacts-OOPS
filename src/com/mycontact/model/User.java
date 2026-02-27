@@ -10,13 +10,31 @@ public abstract class User {
     public User(String email, String passwordHash, UserProfile profile) {
         this.email = email;
         this.passwordHash = passwordHash;
-        this.profile = profile;
+        // Store a defensive copy upon creation
+        this.profile = profile != null ? profile.getCopy() : null;
     }
 
-    public String getEmail() { return email; }
-    public String getPasswordHash() { return passwordHash; }
-    public UserProfile getProfile() { return profile; }
-    
 
-    public abstract String getUserType();
+    public String getEmail() { return email; }
+
+
+    public String getPasswordHash() { return passwordHash; }
+
+    public void setPasswordHash(String passwordHash) {
+        this.passwordHash = passwordHash;
+    }
+
+
+    public UserProfile getProfile() {
+        return profile != null ? profile.getCopy() : null;
+    }
+
+ 
+    public void setProfile(UserProfile newProfile) {
+        if (newProfile != null) {
+            this.profile = newProfile.getCopy();
+        }
+    }
+    
+public abstract String getUserType();
 }
